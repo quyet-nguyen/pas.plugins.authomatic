@@ -79,6 +79,14 @@ class AuthomaticPlugin(BasePlugin):
             raise ValueError('Invalid: Empty provider.name')
         return (result.provider.name, result.user.id)
 
+    def remove_identity(self, userid, provider):
+        """ Remove an identity
+        """
+        identities = self._useridentities_by_userid.get(userid, None)
+        if identities is not None:
+            identity = identities.unlink(provider)
+            self._userid_by_identityinfo.pop((provider, identity['id']))
+
     @security.private
     def lookup_identities(self, result):
         """looks up the UserIdentities by using the provider name and the
@@ -117,9 +125,6 @@ class AuthomaticPlugin(BasePlugin):
 
         result is authomatic result data.
         """
-        # first fetch provider specific user-data
-        result.user.update()
-
         do_notify_created = False
 
         # lookup user by

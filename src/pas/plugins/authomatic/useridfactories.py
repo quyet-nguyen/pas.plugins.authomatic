@@ -44,6 +44,14 @@ class ProviderIDUserNameFactory(BaseUserIDFactory):
         return self.normalize(plugin, result, result.user.username)
 
 
+class EmailFactory(BaseUserIDFactory):
+
+    title = _(u'Provider Email Address')
+
+    def __call__(self, plugin, result):
+        return self.normalize(plugin, result, result.user.email)
+
+
 def new_userid(plugin, result):
     settings = authomatic_settings()
     factory = queryUtility(

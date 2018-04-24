@@ -34,5 +34,9 @@
     factory=".useridfactories.ProviderIDUserNameFactory"
     name="username"
   />
+  <utility
+    factory=".useridfactories.EmailFactory"
+    name="email"
+  />
 
 </configure>

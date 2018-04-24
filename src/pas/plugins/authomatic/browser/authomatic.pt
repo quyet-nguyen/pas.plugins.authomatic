@@ -11,6 +11,17 @@
         <tal:if tal:condition="not: view/is_anon">
           <h2 i18n:translate="add_identity_title">Add identity</h2>
         </tal:if>
+
+        <tal:unlink condition="not: view/is_anon">
+            <p i18n:translate="delete_description"
+            class="description">Unlink profiles</p>
+            <ul>
+                <li tal:repeat="provider view/user_providers">
+                    <a href="${context/absolute_url}/@@authomatic-handler/${provider}?action=unlink">${provider}</a>
+                </li>
+            </ul>
+        </tal:unlink>
+
         <p i18n:translate="add_description"
            class="description">Choose one of these external authentication providers</p>
         <ul>

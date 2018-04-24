@@ -55,6 +55,14 @@ class UserIdentities(Persistent):
         """
         return self._identities.get(provider, None)
 
+    def providers(self):
+        """List linked providers
+        """
+        return self._identities.keys()
+
+    def unlink(self, provider):
+        return self._identities.pop(provider)
+
     def update_userdata(self, result):
         self._sheet = None  # invalidate property sheet
         identity = self._identities[result.provider.name]

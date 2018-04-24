@@ -2,8 +2,7 @@
 from authomatic import Authomatic
 from pas.plugins.authomatic.integration import ZopeRequestAdapter
 from pas.plugins.authomatic.interfaces import _
-from pas.plugins.authomatic.utils import authomatic_cfg
-from pas.plugins.authomatic.utils import authomatic_settings
+from pas.plugins.authomatic.utils import authomatic_plugin, authomatic_cfg, authomatic_settings
 from plone import api
 from plone.app.layout.navigation.interfaces import INavigationRoot
 from plone.protect.interfaces import IDisableCSRFProtection
@@ -30,18 +29,8 @@ class AuthomaticView(BrowserView):
             self.provider = name
         return self
 
-    @property
-    def _provider_names(self):
-        cfgs = authomatic_cfg()
-        if not cfgs:
-            raise ValueError("Authomatic configuration has errors.")
-        return cfgs.keys()
-
     def providers(self):
-        cfgs = authomatic_cfg()
-        if not cfgs:
-            raise ValueError("Authomatic configuration has errors.")
-        for identifier, cfg in cfgs.items():
+        for identifier, cfg in self.cfgs.items():
             entry = cfg.get('display', {})
             cssclasses = entry.get('cssclasses', {})
             record = {
@@ -62,8 +51,7 @@ class AuthomaticView(BrowserView):
     def _add_identity(self, result, provider_name):
         # delegate to PAS plugin to add the identity
         alsoProvides(self.request, IDisableCSRFProtection)
-        aclu = api.portal.get_tool('acl_users')
-        aclu.authomatic.remember_identity(result)
+        self.authopas.remember_identity(result, userid=self.user.id)
         api.portal.show_message(
             _(
                 'added_identity',
@@ -75,8 +63,7 @@ class AuthomaticView(BrowserView):
 
     def _remember_identity(self, result, provider_name):
         alsoProvides(self.request, IDisableCSRFProtection)
-        aclu = api.portal.get_tool('acl_users')
-        aclu.authomatic.remember(result)
+        self.authopas.remember(result)
         api.portal.show_message(
             _(
                 'logged_in_with',
@@ -87,16 +74,10 @@ class AuthomaticView(BrowserView):
         )
 
     def __call__(self):
-        cfg = authomatic_cfg()
-        if cfg is None:
-            return "Authomatic is not configured"
-        if not (
-            ISiteRoot.providedBy(self.context) or
-            INavigationRoot.providedBy(self.context)
-        ):
-            # callback url is expected on either navigationroot or site root
-            # so bevor going on redirect
-            root = api.portal.get_navigation_root(self.context)
+
+        # callback url is expected on site root
+        if not ISiteRoot.providedBy(self.context):
+            root = api.portal.get()
             self.request.response.redirect(
                 "{0}/authomatic-handler/{1}".format(
                     root.absolute_url(),
@@ -104,21 +85,51 @@ class AuthomaticView(BrowserView):
                 )
             )
             return "redirecting"
+
+        self.authopas = authomatic_plugin()
+        self.cfgs = authomatic_cfg()
+        if self.cfgs is None:
+            return "Authomatic is not configured"
+        self.is_anon = api.user.is_anonymous()
+        if not self.is_anon:
+            self.user = api.user.get_current()
+            self.user_providers = self.authopas._useridentities_by_userid.get(self.user.id).providers()
+
+        # Validate provider
         if not hasattr(self, 'provider'):
             return self.template()
-        if self.provider not in cfg:
+        if self.provider not in self.cfgs:
             return "Provider not supported"
-        if not self.is_anon:
-            if self.provider in self._provider_names:
-                raise ValueError(
-                    'Provider {0} is already connected to current '
-                    'user.'.format(self.provider)
+        if not self.is_anon and self.provider in self.user_providers:
+            action = self.request.form.get('action', None)
+            if action == 'unlink':
+                alsoProvides(self.request, IDisableCSRFProtection)
+                self.authopas.remove_identity(self.user.id, self.provider)
+                api.portal.show_message(
+                    _(
+                        'Unlink account with {provider} provider',
+                        mapping={'provider': self.provider}
+                    ),
+                    self.request
                 )
+                return self.template()
+            #Any other action ?
+            else:
+                api.portal.show_message(
+                    _(
+                        'Provider {provider} is already connected to current user',
+                        mapping={'provider': self.provider}
+                    ),
+                    self.request
+                )
+                return self.template()
+
             # TODO: some sort of CSRF check might be needed, so that
             #       not an account got connected by CSRF. Research needed.
-            pass
+
+        #Authomatic login
         auth = Authomatic(
-            cfg,
+            self.cfgs,
             secret=authomatic_settings().secret.encode('utf8')
         )
         result = auth.login(
@@ -131,7 +142,10 @@ class AuthomaticView(BrowserView):
             return
         if result.error:
             return result.error.message
-        display = cfg[self.provider].get('display', {})
+        # fetch provider specific user-data
+        result.user.update()
+
+        display = self.cfgs[self.provider].get('display', {})
         provider_name = display.get('title', self.provider)
         if not self.is_anon:
             # now we delegate to PAS plugin to add the identity
@@ -147,6 +161,3 @@ class AuthomaticView(BrowserView):
             )
         return "redirecting"
 
-    @property
-    def is_anon(self):
-        return api.user.is_anonymous()
