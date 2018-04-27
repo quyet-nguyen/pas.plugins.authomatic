@@ -51,15 +51,30 @@ class AuthomaticView(BrowserView):
     def _add_identity(self, result, provider_name):
         # delegate to PAS plugin to add the identity
         alsoProvides(self.request, IDisableCSRFProtection)
-        self.authopas.remember_identity(result, userid=self.user.id)
-        api.portal.show_message(
-            _(
-                'added_identity',
-                default='Added identity provided by ${provider}',
-                mapping={'provider': provider_name}
-            ),
-            self.request
-        )
+        success = True
+        try:
+            self.authopas.remember_identity(result, userid=self.user.id)
+        except Exception as e:
+            success = False
+            error = unicode(e)
+        if success:
+            api.portal.show_message(
+                _(
+                    'added_identity',
+                    default='Added identity provided by ${provider}',
+                    mapping={'provider': provider_name}
+                ),
+                self.request
+            )
+        else:
+            api.portal.show_message(
+                _(
+                    'added_identity_error',
+                    default='Unable to add identity provided by ${provider}: ${error}',
+                    mapping={'provider': provider_name, 'error': error}
+                ),
+                self.request
+            )
 
     def _remember_identity(self, result, provider_name):
         alsoProvides(self.request, IDisableCSRFProtection)
