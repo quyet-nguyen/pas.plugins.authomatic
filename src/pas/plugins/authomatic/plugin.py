@@ -113,7 +113,7 @@ class AuthomaticPlugin(BasePlugin):
             if useridentities is None:
                 raise ValueError('Invalid userid')
         provider_id = self._provider_id(result)
-        if userid is not None and userid != provider_id[1]:
+        if provider_id in self._userid_by_identityinfo and self._userid_by_identityinfo[provider_id] != userid:
             # This provider's identity is already registered for other user
             raise ValueError("Your %s account is already linked with other id. \
                               Please login and unlink first." % provider_id[0])
