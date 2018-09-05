@@ -22,11 +22,11 @@ class UserIdentity(PersistentDict):
     @property
     def credentials(self):
         cfg = authomatic_cfg()
-        return Credentials.deserialize(cfg, self.user['credentials'])
+        return Credentials.deserialize(cfg, self['credentials'])
 
     @credentials.setter
     def credentials(self, credentials):
-        self.data['credentials'] = credentials.serialize()
+        self['credentials'] = credentials.serialize()
 
 
 class UserIdentities(Persistent):
