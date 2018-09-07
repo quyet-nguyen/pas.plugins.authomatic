@@ -171,8 +171,8 @@ class AuthomaticView(BrowserView):
         else:
             # now we delegate to PAS plugin in order to login
             self._remember_identity(result, provider_name)
-            self.request.response.redirect(
-                "{0}/login_success".format(self.context.absolute_url())
-            )
+            redirect = self.cfgs[self.provider].get('redirect_url', "${portal_url}/login_success")
+            redirect = redirect.replace("${portal_url}", api.portal.get().absolute_url())
+            self.request.response.redirect(redirect)
         return "redirecting"
 
